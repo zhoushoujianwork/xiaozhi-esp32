@@ -17,7 +17,8 @@ extern "C" void app_main(void)
 
     // Initialize NVS flash for WiFi configuration
     esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
         ESP_LOGW(TAG, "Erasing NVS flash to fix corruption");
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
@@ -28,7 +29,8 @@ extern "C" void app_main(void)
     Application::GetInstance().Start();
 
     // Dump CPU usage every 10 second
-    while (true) {
+    while (true)
+    {
         vTaskDelay(10000 / portTICK_PERIOD_MS);
         // SystemInfo::PrintRealTimeStats(pdMS_TO_TICKS(1000));
         int free_sram = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
