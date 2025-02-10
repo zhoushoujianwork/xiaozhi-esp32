@@ -22,8 +22,6 @@
 #include "audio_processor.h"
 #endif
 
-// #include "servo/servo_controller.h"
-
 #define SCHEDULE_EVENT (1 << 0)
 #define AUDIO_INPUT_READY_EVENT (1 << 1)
 #define AUDIO_OUTPUT_READY_EVENT (1 << 2)
@@ -98,8 +96,6 @@ private:
     OpusResampler input_resampler_;
     OpusResampler reference_resampler_;
     OpusResampler output_resampler_;
-
-    // esp_err_t InitializeServo();
 
     void MainLoop();
     void InputAudio();

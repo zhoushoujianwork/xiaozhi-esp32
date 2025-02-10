@@ -8,7 +8,6 @@
 #include "websocket_protocol.h"
 #include "font_awesome_symbols.h"
 #include "iot/thing_manager.h"
-// #include "servo/servo_controller.h"
 
 #include <cstring>
 #include <esp_log.h>
@@ -446,7 +445,6 @@ void Application::Start()
     wake_word_detect_.StartDetection();
 #endif
 
-    // InitializeServo();
     SetDeviceState(kDeviceStateIdle);
 }
 
@@ -700,8 +698,3 @@ void Application::UpdateIotStates()
         protocol_->SendIotStates(states);
     }
 }
-
-// esp_err_t Application::InitializeServo()
-// {
-//     return ServoController::GetInstance().Initialize(GPIO_NUM_12); // 使用GPIO12作为舵机信号引脚
-// }
