@@ -334,25 +334,84 @@ void McpServer::ParseMessage(const std::string& message) {
 }
 
 void McpServer::ParseCapabilities(const cJSON* capabilities) {
+    if (capabilities == nullptr) {
+        ESP_LOGW(TAG, "ParseCapabilities: capabilities is null");
+        return;
+    }
+    
+    // 打印接收到的 capabilities JSON
+    char* capabilities_str = cJSON_Print(capabilities);
+    if (capabilities_str != nullptr) {
+        ESP_LOGI(TAG, "ParseCapabilities: received capabilities: %s", capabilities_str);
+        cJSON_free(capabilities_str);
+    }
+    
     auto vision = cJSON_GetObjectItem(capabilities, "vision");
-    if (cJSON_IsObject(vision)) {
+    if (!cJSON_IsObject(vision)) {
+        ESP_LOGW(TAG, "ParseCapabilities: vision is not an object");
+        return;
+    }
+    
         auto url = cJSON_GetObjectItem(vision, "url");
         auto token = cJSON_GetObjectItem(vision, "token");
-        if (cJSON_IsString(url)) {
+    
+    if (url == nullptr || !cJSON_IsString(url) || url->valuestring == nullptr) {
+        ESP_LOGW(TAG, "ParseCapabilities: url is invalid (url=%p, isString=%d, valuestring=%p)", 
+                 url, url ? cJSON_IsString(url) : 0, url ? url->valuestring : nullptr);
+        return;
+    }
+    
             auto camera = Board::GetInstance().GetCamera();
-            if (camera) {
-                std::string url_str = std::string(url->valuestring);
-                std::string token_str;
-                if (cJSON_IsString(token)) {
-                    token_str = std::string(token->valuestring);
-                }
-                camera->SetExplainUrl(url_str, token_str);
-            }
+    if (camera == nullptr) {
+        ESP_LOGW(TAG, "ParseCapabilities: camera is null");
+        return;
+    }
+    
+    try {
+        // 直接使用 std::string 构造函数，避免 strlen 访问无效内存
+        const char* url_ptr = url->valuestring;
+        std::string url_str;
+        if (url_ptr != nullptr) {
+            // std::string 构造函数会自动处理字符串长度，更安全
+            url_str = url_ptr;
+            ESP_LOGI(TAG, "ParseCapabilities: url_str length=%u", (unsigned int)url_str.length());
         }
+        
+                std::string token_str;
+        if (token != nullptr && cJSON_IsString(token) && token->valuestring != nullptr) {
+            const char* token_ptr = token->valuestring;
+            if (token_ptr != nullptr) {
+                token_str = token_ptr;
+                ESP_LOGI(TAG, "ParseCapabilities: token_str length=%u", (unsigned int)token_str.length());
+                }
+        }
+        
+        if (!url_str.empty()) {
+            ESP_LOGI(TAG, "ParseCapabilities: setting explain URL: %s", url_str.c_str());
+                camera->SetExplainUrl(url_str, token_str);
+        } else {
+            ESP_LOGW(TAG, "ParseCapabilities: url_str is empty");
+        }
+    } catch (const std::exception& e) {
+        ESP_LOGE(TAG, "ParseCapabilities: exception: %s", e.what());
+    } catch (...) {
+        ESP_LOGE(TAG, "ParseCapabilities: unknown exception");
     }
 }
 
 void McpServer::ParseMessage(const cJSON* json) {
+    if (json == nullptr) {
+        ESP_LOGE(TAG, "ParseMessage: json is null");
+        return;
+    }
+    
+    // 打印接收到的完整 JSON 消息
+    char* json_str = cJSON_Print(json);
+    if (json_str != nullptr) {
+        ESP_LOGI(TAG, "ParseMessage: received JSON: %s", json_str);
+        cJSON_free(json_str);
+    }
+    
     // Check JSONRPC version
     auto version = cJSON_GetObjectItem(json, "jsonrpc");
     if (version == nullptr || !cJSON_IsString(version) || strcmp(version->valuestring, "2.0") != 0) {
@@ -368,6 +427,8 @@ void McpServer::ParseMessage(const cJSON* json) {
     }
     
     auto method_str = std::string(method->valuestring);
+    ESP_LOGI(TAG, "ParseMessage: method=%s", method_str.c_str());
+    
     if (method_str.find("notifications") == 0) {
         return;
     }
@@ -387,11 +448,23 @@ void McpServer::ParseMessage(const cJSON* json) {
     auto id_int = id->valueint;
     
     if (method_str == "initialize") {
+        ESP_LOGI(TAG, "ParseMessage: processing initialize method");
         if (cJSON_IsObject(params)) {
+            // 打印 params 内容
+            char* params_str = cJSON_Print(params);
+            if (params_str != nullptr) {
+                ESP_LOGI(TAG, "ParseMessage: params: %s", params_str);
+                cJSON_free(params_str);
+            }
+            
             auto capabilities = cJSON_GetObjectItem(params, "capabilities");
             if (cJSON_IsObject(capabilities)) {
                 ParseCapabilities(capabilities);
+            } else {
+                ESP_LOGW(TAG, "ParseMessage: capabilities is not an object");
             }
+        } else {
+            ESP_LOGW(TAG, "ParseMessage: params is not an object");
         }
         auto app_desc = esp_app_get_description();
         std::string message = "{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"" BOARD_NAME "\",\"version\":\"";

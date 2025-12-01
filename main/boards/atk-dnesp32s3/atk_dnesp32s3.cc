@@ -7,8 +7,10 @@
 #include "i2c_device.h"
 #include "led/single_led.h"
 #include "esp32_camera.h"
+#include "mcp_server.h"
 
 #include <esp_log.h>
+#include <esp_video_init.h>
 #include <esp_lcd_panel_vendor.h>
 #include <driver/i2c_master.h>
 #include <driver/spi_common.h>
@@ -50,7 +52,7 @@ private:
     Button boot_button_;
     LcdDisplay* display_;
     XL9555* xl9555_;
-    Esp32Camera* camera_;
+    Esp32Camera* camera_ = nullptr;  // 初始化为 nullptr，避免未初始化指针
 
     void InitializeI2c() {
         // Initialize I2C peripheral
@@ -133,6 +135,7 @@ private:
     // 初始化摄像头：ov2640；
     // 根据正点原子官方示例参数
     void InitializeCamera() {
+#if CONFIG_ESP_VIDEO_ENABLE_DVP_VIDEO_DEVICE
         xl9555_->SetOutputState(OV_PWDN_IO, 0); // PWDN=低 (上电)
         xl9555_->SetOutputState(OV_RESET_IO, 0); // 确保复位
         vTaskDelay(pdMS_TO_TICKS(50));           // 延长复位保持时间
@@ -180,7 +183,12 @@ private:
         };
 
         camera_ = new Esp32Camera(video_config);
+#else
+        ESP_LOGE(TAG, "DVP video device is not enabled in configuration");
+        camera_ = nullptr;  // 显式设置为 nullptr，避免未初始化指针
+#endif // CONFIG_ESP_VIDEO_ENABLE_DVP_VIDEO_DEVICE
     }
+
 
 public:
     atk_dnesp32s3() : boot_button_(BOOT_BUTTON_GPIO) {
@@ -189,6 +197,14 @@ public:
         InitializeSt7789Display();
         InitializeButtons();
         InitializeCamera();
+#if CONFIG_BOARD_HAS_RF_PINS
+        // Initialize RF module after constructor completes
+        // This ensures GetRFPinConfig() virtual function works correctly
+        InitializeRFModule();
+#endif
+    }
+    
+    ~atk_dnesp32s3() {
     }
 
     virtual Led* GetLed() override {
@@ -220,6 +236,21 @@ public:
     virtual Camera* GetCamera() override {
         return camera_;
     }
+    
+#if CONFIG_BOARD_HAS_RF_PINS
+    virtual bool GetRFPinConfig(gpio_num_t& tx_433, gpio_num_t& rx_433, 
+                                 gpio_num_t& tx_315, gpio_num_t& rx_315) override {
+        #ifdef RF_TX_315_PIN
+        tx_433 = RF_TX_433_PIN;
+        rx_433 = RF_RX_433_PIN;
+        tx_315 = RF_TX_315_PIN;
+        rx_315 = RF_RX_315_PIN;
+        return true;
+        #else
+        return false;
+        #endif
+    }
+#endif
 };
 
 DECLARE_BOARD(atk_dnesp32s3);
